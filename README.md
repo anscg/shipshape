@@ -61,7 +61,7 @@ fits a 1280 × 800 laptop.
 ## CLI
 
 ```bash
-./run.sh --line1 "Ada Lovelace" --line2 "+44 20 7946 0142" \
+./run.sh --line1 "Fiona Hackworth" --line2 "+44 20 7946 0142" \
          --line3 "88 Analytical Engine Way" \
          --line4 "Marylebone, London" --line5 "W1U 4RW" \
          --qr "https://hackclub.com" --out label.png

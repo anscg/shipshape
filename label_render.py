@@ -47,7 +47,7 @@ LINE_MAX_X = (470.0, 470.0, 745.0, 745.0, 745.0)
 # Placeholder only: a fictional name and a number from Ofcom's reserved
 # drama range, so nothing real ships on a test label.
 DEFAULT_LINES = [
-    "Ada Lovelace",
+    "Fiona Hackworth",
     "+44 20 7946 0142",
     "88 Analytical Engine Way",
     "Marylebone, London",
