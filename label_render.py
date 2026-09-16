@@ -19,7 +19,21 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(HERE, "assets")
 FRAME_SVG = os.path.join(ASSETS, "frame.svg")
 FRAME_PNG = os.path.join(ASSETS, "frame@600.png")
-FONT_PATH = os.path.join(ASSETS, "Geist-Regular.ttf")
+# Geist v1.800 statics, all from the same ttfautohint build. Regular is the
+# one the designer set the artwork in; the heavier cuts are here because a
+# thermal head is binary, and a stem that lands under one dot simply does not
+# print. Going up a weight is the cure for patchy text.
+WEIGHTS = {
+    "regular": "Geist-Regular.ttf",
+    "medium": "Geist-Medium.ttf",
+    "semibold": "Geist-SemiBold.ttf",
+}
+DEFAULT_WEIGHT = "regular"
+FONT_PATH = os.path.join(ASSETS, WEIGHTS[DEFAULT_WEIGHT])
+
+
+def font_path(weight: str = DEFAULT_WEIGHT) -> str:
+    return os.path.join(ASSETS, WEIGHTS.get((weight or "").lower(), WEIGHTS[DEFAULT_WEIGHT]))
 
 # --- design units -----------------------------------------------------------
 # The frame SVG's viewBox. 799 units wide == 4in, 399 units tall == 2in.
@@ -60,6 +74,7 @@ DEFAULT_QR = "https://hackclub.com"
 class Label:
     lines: list = field(default_factory=lambda: list(DEFAULT_LINES))
     qr_data: str = DEFAULT_QR
+    weight: str = DEFAULT_WEIGHT
 
     def normalised(self):
         out = [(self.lines[i] if i < len(self.lines) else "") for i in range(N_LINES)]
@@ -95,15 +110,15 @@ def _frame(width_px: int, height_px: int) -> Image.Image:
     return img
 
 
-def _fit_font(text: str, max_width_px: float, base_size_px: float):
+def _fit_font(text: str, max_width_px: float, base_size_px: float, path: str = FONT_PATH):
     """Largest size <= base that keeps `text` inside max_width_px."""
     size = max(1, int(round(base_size_px)))
-    font = ImageFont.truetype(FONT_PATH, size)
+    font = ImageFont.truetype(path, size)
     if not text or font.getlength(text) <= max_width_px:
         return font
     while size > 4:
         size -= 1
-        font = ImageFont.truetype(FONT_PATH, size)
+        font = ImageFont.truetype(path, size)
         if font.getlength(text) <= max_width_px:
             break
     return font
@@ -144,12 +159,13 @@ def render(label: Label, dpi: int = 300, mono: bool = False) -> Image.Image:
     draw = ImageDraw.Draw(img)
 
     lines = label.normalised()
+    face = font_path(label.weight)
     base_size_px = FONT_SIZE * sx
     for i, text in enumerate(lines):
         if not text:
             continue
         max_width_px = (LINE_MAX_X[i] - TEXT_X) * sx
-        font = _fit_font(text, max_width_px, base_size_px)
+        font = _fit_font(text, max_width_px, base_size_px, face)
         x = TEXT_X * sx
         y = (BASELINE_1 + i * LINE_PITCH) * sy
         draw.text((x, y), text, font=font, fill=(0, 0, 0), anchor="ls")

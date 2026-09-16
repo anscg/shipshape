@@ -41,6 +41,12 @@ dpi, the text will print noticeably cleaner than the 203 dpi preview suggests �
 at 203 dpi the cap height is only ~23 dots, so thresholding leaves stems
 visibly uneven.
 
+The address weight is selectable — Regular, Medium or SemiBold. It is worth
+reaching for: a thermal head is binary, so a stem that lands under a single
+dot does not print at all, and stepping up a weight is the usual cure for
+text that comes out patchy. Regular is the default because it is what the
+designer set the artwork in.
+
 Lines that run too wide shrink to fit rather than overflowing. Lines 1–2 sit
 beside the QR so they wrap earlier than 3–5. Blank lines are skipped.
 
@@ -121,5 +127,6 @@ frame at the exact output size; without it, the bundled 600 dpi
   the Hack Club flag and *Make* wordmark in it are Hack Club's marks. They are
   here so the tool can reproduce the label; they are not covered by the MIT
   grant and are not yours to reuse.
-- `assets/Geist-Regular.ttf` is Geist v1.800 by the Geist Project Authors,
-  under the SIL Open Font License 1.1 — see `assets/Geist-LICENSE.txt`.
+- `assets/Geist-{Regular,Medium,SemiBold}.ttf` are Geist v1.800 by the Geist
+  Project Authors, under the SIL Open Font License 1.1 — see
+  `assets/Geist-LICENSE.txt`.

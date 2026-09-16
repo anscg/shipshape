@@ -33,6 +33,10 @@ VIEW_DOTS = "Dot grid 1:1"
 VIEW_FIT = "Fit window"
 VIEW_CHOICES = (VIEW_ACTUAL, VIEW_DOTS, VIEW_FIT)
 
+# Pretty names for lr.WEIGHTS, and back again.
+WEIGHT_LABELS = {"regular": "Regular", "medium": "Medium", "semibold": "SemiBold"}
+WEIGHT_KEYS = {v: k for k, v in WEIGHT_LABELS.items()}
+
 
 def screen_ppi(root) -> float:
     """Logical points per real inch of screen.
@@ -123,8 +127,16 @@ def run_gui(initial: lr.Label, dpi: int, media: str):
     form.columnconfigure(1, weight=1)
 
     ttk.Label(form, text="Address", style="Heading.TLabel").grid(
-        row=0, column=0, columnspan=2, sticky="w"
+        row=0, column=0, sticky="w"
     )
+    weight_box = ttk.Frame(form)
+    weight_box.grid(row=0, column=1, sticky="e")
+    ttk.Label(weight_box, text="Weight", style="Muted.TLabel").pack(side="left", padx=(0, 6))
+    weight_var = tk.StringVar(value=WEIGHT_LABELS.get(initial.weight, "Regular"))
+    ttk.Combobox(
+        weight_box, textvariable=weight_var, values=list(WEIGHT_LABELS.values()),
+        state="readonly", width=9,
+    ).pack(side="left")
     ttk.Label(form, text=FIELD_HINT, style="Muted.TLabel").grid(
         row=1, column=0, columnspan=2, sticky="w", pady=(2, 6)
     )
@@ -219,7 +231,11 @@ def run_gui(initial: lr.Label, dpi: int, media: str):
     status.pack(side="left")
 
     def current_label() -> lr.Label:
-        return lr.Label(lines=[v.get() for v in entries], qr_data=qr_var.get())
+        return lr.Label(
+            lines=[v.get() for v in entries],
+            qr_data=qr_var.get(),
+            weight=WEIGHT_KEYS.get(weight_var.get(), lr.DEFAULT_WEIGHT),
+        )
 
     def set_status(msg, error=False):
         status.configure(text=msg, foreground="#d1344b" if error else "#8a8a8e")
@@ -282,7 +298,7 @@ def run_gui(initial: lr.Label, dpi: int, media: str):
             root.after_cancel(state["job"])
         state["job"] = root.after(160, draw_preview)
 
-    for var in list(entries) + [qr_var, mono_var, view_var]:
+    for var in list(entries) + [qr_var, mono_var, view_var, weight_var]:
         var.trace_add("write", schedule_preview)
 
     # ---- save / print ------------------------------------------------------
@@ -387,6 +403,8 @@ def main(argv=None):
     for i in range(1, lr.N_LINES + 1):
         p.add_argument(f"--line{i}", default=None, help=f"address line {i}")
     p.add_argument("--qr", default=None, help="QR payload")
+    p.add_argument("--weight", default=lr.DEFAULT_WEIGHT, choices=sorted(lr.WEIGHTS),
+                   help="address weight (default: regular)")
     p.add_argument("--dpi", type=int, default=203, help="render DPI (default: 203)")
     p.add_argument("--media", default="Custom.4x2in", help="CUPS media name")
     p.add_argument("--out", default=None, help="write a PNG/PDF instead of opening the GUI")
@@ -408,6 +426,7 @@ def main(argv=None):
     label = lr.Label(
         lines=[g or "" for g in given] if has_lines else list(SAMPLE),
         qr_data=args.qr if args.qr is not None else lr.DEFAULT_QR,
+        weight=args.weight,
     )
 
     if args.out:
