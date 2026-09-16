@@ -44,10 +44,19 @@ visibly uneven.
 Lines that run too wide shrink to fit rather than overflowing. Lines 1–2 sit
 beside the QR so they wrap earlier than 3–5. Blank lines are skipped.
 
-The window is resizable and the preview is the part that gives: at full size
-the label sits 1:1 with the dot grid, and below that it scales down and the
-caption says so rather than pretending to be dot-exact. It fits a 1280 × 800
-laptop (minimum 460 × 598).
+The window is resizable and the preview is the part that gives. Three views:
+
+- **Actual size** (default) — the label at its true physical dimensions, using
+  the panel's real ppi from CoreGraphics rather than Tk's fabricated 96 dpi.
+  This is what the printed label looks like in the hand.
+- **Dot grid 1:1** — one screen pixel per printer dot. On a Retina laptop this
+  is around 150% of life size, so it magnifies the stair-stepping; useful for
+  checking the dots, misleading as a quality judgement.
+- **Fit window** — fills whatever room there is.
+
+The caption always states the size relative to paper, so the preview never
+quietly flatters or maligns the output. Minimum window is 460 × 604, which
+fits a 1280 × 800 laptop.
 
 ## CLI
 

@@ -28,6 +28,38 @@ FIELD_HINT = "Lines 1–2 sit beside the QR, so they wrap earlier. Blank lines a
 
 SAMPLE = lr.DEFAULT_LINES
 
+VIEW_ACTUAL = "Actual size"
+VIEW_DOTS = "Dot grid 1:1"
+VIEW_FIT = "Fit window"
+VIEW_CHOICES = (VIEW_ACTUAL, VIEW_DOTS, VIEW_FIT)
+
+
+def screen_ppi(root) -> float:
+    """Logical points per real inch of screen.
+
+    Tk's winfo_screenmm just assumes 96 dpi, which is wrong on every Retina
+    Mac, so ask CoreGraphics for the panel's true physical size first.
+    """
+    try:
+        import ctypes
+        import ctypes.util
+
+        class CGSize(ctypes.Structure):
+            _fields_ = [("width", ctypes.c_double), ("height", ctypes.c_double)]
+
+        cg = ctypes.cdll.LoadLibrary(ctypes.util.find_library("ApplicationServices"))
+        cg.CGMainDisplayID.restype = ctypes.c_uint32
+        cg.CGDisplayScreenSize.restype = CGSize
+        cg.CGDisplayScreenSize.argtypes = [ctypes.c_uint32]
+        display = cg.CGMainDisplayID()
+        mm_wide = cg.CGDisplayScreenSize(display).width
+        if mm_wide > 1:
+            return root.winfo_screenwidth() / (mm_wide / 25.4)
+    except Exception:  # noqa: BLE001 - any failure just falls back to Tk
+        pass
+    mm = root.winfo_screenmmwidth()
+    return root.winfo_screenwidth() / (mm / 25.4) if mm else 96.0
+
 
 # --------------------------------------------------------------------------- GUI
 
@@ -57,13 +89,15 @@ def run_gui(initial: lr.Label, dpi: int, media: str):
     # The canvas is elastic: it takes whatever room the window has left over.
     # At full size the label sits 1:1 with the printer's dot grid; when the
     # window is smaller than that, it scales down and says so.
+    ppi = screen_ppi(root)
+    actual_w = int(round(lr.LABEL_W_IN * ppi))
     preview_h = int(round(PREVIEW_W * lr.LABEL_H_IN / lr.LABEL_W_IN))
     try:
         surround = style.lookup("TFrame", "background") or root.cget("bg")
     except tk.TclError:
         surround = root.cget("bg")
     canvas = tk.Canvas(
-        outer, width=PREVIEW_W, height=preview_h,
+        outer, width=actual_w, height=int(round(actual_w / 2)),
         highlightthickness=0, borderwidth=0, background=surround,
     )
     outer.columnconfigure(0, weight=1)
@@ -74,6 +108,11 @@ def run_gui(initial: lr.Label, dpi: int, media: str):
     caption.grid(row=1, column=0, sticky="ew", pady=(4, 0))
     scale_lbl = ttk.Label(caption, text="", style="Muted.TLabel")
     scale_lbl.pack(side="left")
+    view_var = tk.StringVar(value=VIEW_ACTUAL)
+    ttk.Combobox(
+        caption, textvariable=view_var, values=VIEW_CHOICES,
+        state="readonly", width=13,
+    ).pack(side="right", padx=(10, 0))
     ttk.Checkbutton(
         caption, text="1-bit (as printed)", variable=mono_var,
     ).pack(side="right")
@@ -198,19 +237,27 @@ def run_gui(initial: lr.Label, dpi: int, media: str):
             set_status(f"Preview failed: {exc}", error=True)
             return
 
-        # Largest 2:1 box that fits, never magnified past the dot grid.
-        disp_w = min(avail_w, avail_h * 2, PREVIEW_W)
+        mode = view_var.get()
+        if mode == VIEW_DOTS:
+            want = PREVIEW_W
+        elif mode == VIEW_FIT:
+            want = avail_w
+        else:
+            want = actual_w
+        # Never magnify past the dot grid: beyond 1:1 there is nothing to show.
+        disp_w = max(120, min(want, avail_w, avail_h * 2, PREVIEW_W))
         disp_h = int(round(disp_w / 2))
+
         if disp_w < PREVIEW_W:
             img = img.convert("L").resize((disp_w, disp_h), lr.Image.LANCZOS)
-            pct = round(disp_w * 100 / PREVIEW_W)
-            scale_lbl.configure(
-                text=f"4 × 2 in  ·  {pct}% — zoomed out, not dot-exact"
-            )
+        life = disp_w / actual_w * 100          # size on screen vs on paper
+        if abs(life - 100) < 2:
+            note = f"actual size on this screen ({ppi:.0f} ppi)"
         else:
-            scale_lbl.configure(
-                text=f"4 × 2 in  ·  1:1, one pixel per dot on a {PREVIEW_DPI} dpi head"
-            )
+            note = f"{life:.0f}% of actual size"
+        if disp_w == PREVIEW_W:
+            note += f"  ·  1:1 with the {PREVIEW_DPI} dpi dot grid"
+        scale_lbl.configure(text=f"4 × 2 in  ·  {note}")
 
         state["photo"] = ImageTk.PhotoImage(img)
         canvas.delete("all")
@@ -235,7 +282,7 @@ def run_gui(initial: lr.Label, dpi: int, media: str):
             root.after_cancel(state["job"])
         state["job"] = root.after(160, draw_preview)
 
-    for var in list(entries) + [qr_var, mono_var]:
+    for var in list(entries) + [qr_var, mono_var, view_var]:
         var.trace_add("write", schedule_preview)
 
     # ---- save / print ------------------------------------------------------
@@ -320,7 +367,7 @@ def run_gui(initial: lr.Label, dpi: int, media: str):
     # shrink until the label is a 240pt thumbnail, so this still fits a 1280x800
     # laptop, then open as large as the screen comfortably allows.
     chrome_h = root.winfo_reqheight() - canvas.winfo_reqheight()
-    min_w = max(460, root.winfo_reqwidth() - PREVIEW_W + 240)
+    min_w = max(460, root.winfo_reqwidth() - actual_w + 240)
     root.minsize(min_w, chrome_h + 100)
 
     want_w, want_h = root.winfo_reqwidth(), root.winfo_reqheight()
