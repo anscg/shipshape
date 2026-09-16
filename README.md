@@ -44,6 +44,11 @@ visibly uneven.
 Lines that run too wide shrink to fit rather than overflowing. Lines 1–2 sit
 beside the QR so they wrap earlier than 3–5. Blank lines are skipped.
 
+The window is resizable and the preview is the part that gives: at full size
+the label sits 1:1 with the dot grid, and below that it scales down and the
+caption says so rather than pretending to be dot-exact. It fits a 1280 × 800
+laptop (minimum 460 × 598).
+
 ## CLI
 
 ```bash

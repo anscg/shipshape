@@ -50,39 +50,44 @@ def run_gui(initial: lr.Label, dpi: int, media: str):
     state = {"photo": None, "job": None, "printing": False}
     mono_var = tk.BooleanVar(value=True)
 
-    outer = ttk.Frame(root, padding=(20, 18, 20, 16))
+    outer = ttk.Frame(root, padding=(18, 14, 18, 12))
     outer.pack(fill="both", expand=True)
 
     # ---- preview -----------------------------------------------------------
+    # The canvas is elastic: it takes whatever room the window has left over.
+    # At full size the label sits 1:1 with the printer's dot grid; when the
+    # window is smaller than that, it scales down and says so.
     preview_h = int(round(PREVIEW_W * lr.LABEL_H_IN / lr.LABEL_W_IN))
-    shell = ttk.Frame(outer, relief="solid", borderwidth=1)
-    shell.pack()
+    try:
+        surround = style.lookup("TFrame", "background") or root.cget("bg")
+    except tk.TclError:
+        surround = root.cget("bg")
     canvas = tk.Canvas(
-        shell, width=PREVIEW_W, height=preview_h,
-        highlightthickness=0, borderwidth=0, background="#ffffff",
+        outer, width=PREVIEW_W, height=preview_h,
+        highlightthickness=0, borderwidth=0, background=surround,
     )
-    canvas.pack()
+    outer.columnconfigure(0, weight=1)
+    outer.rowconfigure(0, weight=1)          # only the preview row stretches
+    canvas.grid(row=0, column=0, sticky="nsew")
+
     caption = ttk.Frame(outer)
-    caption.pack(fill="x", pady=(6, 0))
-    ttk.Label(
-        caption,
-        text=f"4 × 2 in  ·  actual size, modelled on a {PREVIEW_DPI} dpi head",
-        style="Muted.TLabel",
-    ).pack(side="left")
+    caption.grid(row=1, column=0, sticky="ew", pady=(4, 0))
+    scale_lbl = ttk.Label(caption, text="", style="Muted.TLabel")
+    scale_lbl.pack(side="left")
     ttk.Checkbutton(
         caption, text="1-bit (as printed)", variable=mono_var,
     ).pack(side="right")
 
     # ---- address -----------------------------------------------------------
     form = ttk.Frame(outer)
-    form.pack(fill="x", pady=(18, 0))
+    form.grid(row=2, column=0, sticky="ew", pady=(12, 0))
     form.columnconfigure(1, weight=1)
 
     ttk.Label(form, text="Address", style="Heading.TLabel").grid(
         row=0, column=0, columnspan=2, sticky="w"
     )
     ttk.Label(form, text=FIELD_HINT, style="Muted.TLabel").grid(
-        row=1, column=0, columnspan=2, sticky="w", pady=(2, 8)
+        row=1, column=0, columnspan=2, sticky="w", pady=(2, 6)
     )
 
     entries = []
@@ -90,35 +95,37 @@ def run_gui(initial: lr.Label, dpi: int, media: str):
     first_entry = None
     for i, field_name in enumerate(FIELD_LABELS):
         ttk.Label(form, text=field_name).grid(
-            row=i + 2, column=0, sticky="e", pady=4, padx=(0, 12)
+            row=i + 2, column=0, sticky="e", pady=3, padx=(0, 12)
         )
         var = tk.StringVar(value=lines[i])
         ent = ttk.Entry(form, textvariable=var, font=("-apple-system", 13))
-        ent.grid(row=i + 2, column=1, sticky="ew", pady=4)
+        ent.grid(row=i + 2, column=1, sticky="ew", pady=3)
         entries.append(var)
         if first_entry is None:
             first_entry = ent
 
     row = len(FIELD_LABELS) + 2
     ttk.Separator(form, orient="horizontal").grid(
-        row=row, column=0, columnspan=2, sticky="ew", pady=14
+        row=row, column=0, columnspan=2, sticky="ew", pady=10
     )
     ttk.Label(form, text="QR code", style="Heading.TLabel").grid(
-        row=row + 1, column=0, columnspan=2, sticky="w", pady=(0, 8)
+        row=row + 1, column=0, columnspan=2, sticky="w", pady=(0, 6)
     )
     ttk.Label(form, text="Content").grid(
-        row=row + 2, column=0, sticky="e", pady=4, padx=(0, 12)
+        row=row + 2, column=0, sticky="e", pady=3, padx=(0, 12)
     )
     qr_var = tk.StringVar(value=initial.qr_data)
     ttk.Entry(form, textvariable=qr_var, font=("-apple-system", 13)).grid(
-        row=row + 2, column=1, sticky="ew", pady=4
+        row=row + 2, column=1, sticky="ew", pady=3
     )
 
     # ---- printer -----------------------------------------------------------
-    ttk.Separator(outer, orient="horizontal").pack(fill="x", pady=16)
+    ttk.Separator(outer, orient="horizontal").grid(
+        row=3, column=0, sticky="ew", pady=12
+    )
 
     printer_row = ttk.Frame(outer)
-    printer_row.pack(fill="x")
+    printer_row.grid(row=4, column=0, sticky="ew")
     printer_row.columnconfigure(1, weight=1)
 
     printers = lr.list_printers()
@@ -131,18 +138,18 @@ def run_gui(initial: lr.Label, dpi: int, media: str):
     ).grid(row=0, column=1, sticky="ew")
 
     native_lbl = ttk.Label(printer_row, text="", style="Muted.TLabel")
-    native_lbl.grid(row=2, column=1, sticky="w", pady=(6, 0))
+    native_lbl.grid(row=2, column=1, sticky="w", pady=(4, 0))
 
     def on_printer(*_):
         native = lr.printer_resolution(printer_var.get().strip())
         if native:
             dpi_var.set(str(native))
             native_lbl.configure(
-                text=f"driver reports {native} dpi — 1-bit output is exact at this dpi"
+                text=f"driver reports {native} dpi — 1-bit is exact here"
             )
         else:
             native_lbl.configure(
-                text="driver does not report a resolution; set Output DPI to the head's own dpi"
+                text="driver reports no dpi — set Output DPI to the head's"
             )
 
     printer_var.trace_add("write", on_printer)
@@ -167,7 +174,7 @@ def run_gui(initial: lr.Label, dpi: int, media: str):
 
     # ---- actions -----------------------------------------------------------
     actions = ttk.Frame(outer)
-    actions.pack(fill="x", pady=(18, 0))
+    actions.grid(row=5, column=0, sticky="ew", pady=(12, 0))
 
     status = ttk.Label(actions, text="Ready", style="Muted.TLabel")
     status.pack(side="left")
@@ -181,15 +188,47 @@ def run_gui(initial: lr.Label, dpi: int, media: str):
     # ---- live preview ------------------------------------------------------
     def draw_preview():
         state["job"] = None
+        avail_w = canvas.winfo_width()
+        avail_h = canvas.winfo_height()
+        if avail_w < 20 or avail_h < 20:       # not laid out yet
+            return
         try:
             img = lr.render(current_label(), dpi=PREVIEW_DPI, mono=mono_var.get())
         except Exception as exc:  # noqa: BLE001 - reported in the status line
             set_status(f"Preview failed: {exc}", error=True)
             return
-        # No resize: the render is already exactly PREVIEW_W x preview_h.
+
+        # Largest 2:1 box that fits, never magnified past the dot grid.
+        disp_w = min(avail_w, avail_h * 2, PREVIEW_W)
+        disp_h = int(round(disp_w / 2))
+        if disp_w < PREVIEW_W:
+            img = img.convert("L").resize((disp_w, disp_h), lr.Image.LANCZOS)
+            pct = round(disp_w * 100 / PREVIEW_W)
+            scale_lbl.configure(
+                text=f"4 × 2 in  ·  {pct}% — zoomed out, not dot-exact"
+            )
+        else:
+            scale_lbl.configure(
+                text=f"4 × 2 in  ·  1:1, one pixel per dot on a {PREVIEW_DPI} dpi head"
+            )
+
         state["photo"] = ImageTk.PhotoImage(img)
         canvas.delete("all")
-        canvas.create_image(0, 0, anchor="nw", image=state["photo"])
+        x, y = avail_w // 2, avail_h // 2
+        canvas.create_image(x, y, anchor="center", image=state["photo"])
+        canvas.create_rectangle(
+            x - disp_w // 2 - 1, y - disp_h // 2 - 1,
+            x + disp_w - disp_w // 2, y + disp_h - disp_h // 2,
+            outline="#9a9a9e",
+        )
+
+    def on_canvas_resize(event):
+        if (event.width, event.height) == state.get("canvas_size"):
+            return
+        state["canvas_size"] = (event.width, event.height)
+        schedule_preview()
+
+    canvas.bind("<Configure>", on_canvas_resize)
 
     def schedule_preview(*_):
         if state["job"] is not None:
@@ -276,8 +315,19 @@ def run_gui(initial: lr.Label, dpi: int, media: str):
     on_printer()
     draw_preview()
     root.update_idletasks()
-    root.minsize(root.winfo_reqwidth(), root.winfo_reqheight())
-    root.resizable(False, False)
+
+    # The controls are the fixed cost; the preview is what gives. Let the window
+    # shrink until the label is a 240pt thumbnail, so this still fits a 1280x800
+    # laptop, then open as large as the screen comfortably allows.
+    chrome_h = root.winfo_reqheight() - canvas.winfo_reqheight()
+    min_w = max(460, root.winfo_reqwidth() - PREVIEW_W + 240)
+    root.minsize(min_w, chrome_h + 100)
+
+    want_w, want_h = root.winfo_reqwidth(), root.winfo_reqheight()
+    max_w = int(root.winfo_screenwidth() * 0.9)
+    max_h = int(root.winfo_screenheight() * 0.85)
+    root.geometry(f"{min(want_w, max_w)}x{min(want_h, max_h)}")
+    root.resizable(True, True)
     if first_entry is not None:
         first_entry.focus_set()
     root.mainloop()
